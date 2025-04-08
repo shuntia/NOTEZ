@@ -1,9 +1,6 @@
 const serverUrl = "wss://notez-server.onrender.com";
 const socket = new WebSocket(serverUrl);
-
-const peerConnection = new RTCPeerConnection({
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-});
+const peerConnection = new RTCPeerConnection();
 
 let dataChannel;
 let code, pass;
@@ -88,26 +85,20 @@ peerConnection.ondatachannel = (evt) => {
 };
 
 // Initiator handshake
-function startHandshake(inputCode, inputPass) {
+async function startHandshake(inputCode, inputPass) {
   code = inputCode;
   pass = inputPass;
   dataChannel = peerConnection.createDataChannel("channel");
   dataChannel.onopen = () => console.log("Data channel open (Initiator)");
   dataChannel.onmessage = (msg) => console.log("Initiator got:", msg.data);
 
-  peerConnection
-    .createOffer()
+  peerConnection.createOffer()
     .then((offer) => peerConnection.setLocalDescription(offer))
     .then(() =>
       socket.send(JSON.stringify({ type: "probe", data: { code, pass } }))
     )
     .catch(console.error);
-}
-
-// Process buffered candidates
-function flushCandidateBuffer() {
-  candidateBuffer.forEach((cand) => {
-    peerConnection.addIceCandidate(cand).catch(console.error);
-  });
-  candidateBuffer = [];
+  dataChannel = peerConnection.createDataChannel("channel");
+  dataChannel.onopen = () => console.log("Data channel open (Initiator)");
+  dataChannel.onmessage = (msg) => console.log("Initiator got:", msg.data);
 }
