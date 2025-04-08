@@ -1,12 +1,11 @@
 // Replace with your Render server URL (use wss:// for secure connections)
-const serverUrl = "wss://notez-server.onrender.com";
+const serverUrl = "https://notez-server.onrender.com";
 const socket = new WebSocket(serverUrl);
 const peerConnection = new RTCPeerConnection();
 let dataChannel; // Will be set for both initiator and receiver
 var code, pass;
 let candidateBuffer = [];  // Buffer ICE candidates if remoteDescription isn’t set
 
-// -- WebSocket Setup --
 socket.onopen = () => {
   console.log("Connected to signaling server");
 };
