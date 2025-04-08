@@ -1,7 +1,6 @@
 // ...existing code replaced...
 const serverUrl = "https://notez-server.onrender.com";
 const socket = new WebSocket(serverUrl);
-
 const peerConnection = new RTCPeerConnection();
 
 let dataChannel;
@@ -86,17 +85,16 @@ function flushCandidateBuffer() {
 }
 
 // Initiator handshake
-function startHandshake(inputCode, inputPass) {
+async function startHandshake(inputCode, inputPass) {
   code = inputCode;
   pass = inputPass;
-  dataChannel = peerConnection.createDataChannel("channel");
-  dataChannel.onopen = () => console.log("Data channel open (Initiator)");
-  dataChannel.onmessage = (msg) => console.log("Initiator got:", msg.data);
-
-  peerConnection.createOffer()
+  await peerConnection.createOffer()
     .then((offer) => peerConnection.setLocalDescription(offer))
     .then(() => {
       socket.send(JSON.stringify({ type: "probe", data: { code, pass } }));
     })
     .catch(console.error);
+  dataChannel = peerConnection.createDataChannel("channel");
+  dataChannel.onopen = () => console.log("Data channel open (Initiator)");
+  dataChannel.onmessage = (msg) => console.log("Initiator got:", msg.data);
 }
