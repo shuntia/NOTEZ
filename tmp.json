@@ -1,0 +1,1 @@
+{"type":"offer","sdp":{"type":"offer","sdp":"v=0\r\no=mozilla...THIS_IS_SDPARTA-99.0 192394910725146079 0 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\na=sendrecv\r\na=fingerprint:sha-256 E9:86:F1:58:76:92:38:16:37:73:0D:4A:89:80:E3:38:11:59:17:3D:28:9B:D0:E8:2B:EC:05:0F:78:42:BD:60\r\na=ice-options:trickle\r\na=msid-semantic:WMS *\r\n"}}

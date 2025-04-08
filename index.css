@@ -1,0 +1,21 @@
+body {
+	background-image: url(https://cdn.pixabay.com/photo/2022/01/13/22/16/blue-and-purple-6936112_1280.png);
+	background-size: 100vw, 100vh;
+	text-align: center;
+	display: flex;
+	align-items: center;
+	flex-direction: column;
+}
+
+h1 {
+	height: 50vh;
+	font-size: 10vh;
+}
+
+#startbtn {
+	font-size: 5vh;
+	border-radius: 10px;
+	padding: 10px;
+	background-color: transparent;
+	border-color: black;
+}
