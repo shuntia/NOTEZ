@@ -1,4 +1,3 @@
-
 // Replace with your Render server URL (use wss:// for secure connections)
 const serverUrl = "wss://notez-server.onrender.com";
 const socket = new WebSocket(serverUrl);
@@ -59,10 +58,10 @@ socket.onmessage = async (message) => {
     }
   } else if (data.type === "answer") {
     console.log("Received answer");
-    // Only set remote description if in the right state
     if (peerConnection.signalingState === "have-local-offer") {
       try {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        flushCandidateBuffer(); // Flush here
       } catch (err) {
         console.error("Error setting remote description for answer:", err);
       }
