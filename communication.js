@@ -1,181 +1,102 @@
-// Replace with your Render server URL (use wss:// for secure connections)
+// ...existing code replaced...
 const serverUrl = "https://notez-server.onrender.com";
 const socket = new WebSocket(serverUrl);
-const peerConnection = new RTCPeerConnection({
-  iceServers: [{
-    url: 'turn:numb.viagenie.ca',
-    credential: 'muazkh',
-    username: 'webrtc@live.com'
-  },
-  {
-    url: 'turn:192.158.29.39:3478?transport=udp',
-    credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-    username: '28224511:1379330808'
-  },
-  {
-    url: 'turn:192.158.29.39:3478?transport=tcp',
-    credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-    username: '28224511:1379330808'
-  },
-  {
-    url: 'turn:turn.bistri.com:80',
-    credential: 'homeo',
-    username: 'homeo'
-  },
-  {
-    url: 'turn:turn.anyfirewall.com:443?transport=tcp',
-    credential: 'webrtc',
-    username: 'webrtc'
-  }]
-});
-let dataChannel; // Will be set for both initiator and receiver
-var code, pass;
-let candidateBuffer = [];  // Buffer ICE candidates if remoteDescription isn’t set
 
-socket.onopen = () => {
-  console.log("Connected to signaling server");
-};
+const peerConnection = new RTCPeerConnection();
 
-socket.onmessage = async (message) => {
-  let data = message.data;
-  // Convert Blob to text if necessary
+let dataChannel;
+let code, pass;
+let candidateBuffer = [];
+
+// Signaling server open
+socket.onopen = () => console.log("Connected to server");
+
+// Handle server messages
+socket.onmessage = async (evt) => {
+  let data = evt.data;
   if (data instanceof Blob) {
-    try {
-      data = await data.text();
-    } catch (err) {
-      console.error("Error converting Blob to text:", err);
-      return;
-    }
+    data = await data.text().catch(console.error);
   }
   try {
     data = JSON.parse(data);
   } catch (err) {
-    console.error("Error parsing JSON:", err);
+    console.error("JSON parse error:", err);
     return;
   }
-  console.log("Received message:", data);
+  console.log("Received:", data);
 
+  // Offer
   if (data.type === "offer") {
-    console.log("Got offer");
-    console.log("sdp:" + data.sdp.sdp);
-    try {
-      // Set remote description (this puts the connection in "have-remote-offer" state)
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+    await peerConnection.setRemoteDescription(data.sdp);
+    flushCandidateBuffer();
 
-      // Flush any buffered ICE candidates now that remoteDescription is set
-      flushCandidateBuffer();
-
-      // Create an answer if we're not in a stable state already
-      if (peerConnection.signalingState === "have-remote-offer") {
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        socket.send(JSON.stringify({
-          type: "answer",
-          sdp: peerConnection.localDescription,
-          code: code,
-          pass: pass
-        }));
-      } else {
-        console.warn("Not creating answer because signaling state is", peerConnection.signalingState);
-      }
-    } catch (err) {
-      console.error("Error processing offer:", err);
+    if (peerConnection.signalingState === "have-remote-offer") {
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      socket.send(JSON.stringify({ type: "answer", sdp: peerConnection.localDescription, code, pass }));
     }
-  } else if (data.type === "answer") {
-    console.log("Received answer");
+  }
+
+  // Answer
+  else if (data.type === "answer") {
     if (peerConnection.signalingState === "have-local-offer") {
-      try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
-        flushCandidateBuffer(); // Flush here
-      } catch (err) {
-        console.error("Error setting remote description for answer:", err);
-      }
-    } else {
-      console.warn("Cannot set remote answer in state", peerConnection.signalingState);
+      await peerConnection.setRemoteDescription(data.sdp);
+      flushCandidateBuffer();
     }
-  } else if (data.type === "candidate") {
-    // Buffer the candidate if remoteDescription hasn't been set yet
+  }
+
+  // ICE candidate
+  else if (data.type === "candidate") {
     if (!peerConnection.remoteDescription) {
-      console.warn("Buffering ICE candidate until remote description is set");
       candidateBuffer.push(data.candidate);
     } else {
-      try {
-        const candidate = new RTCIceCandidate(data.candidate);
-        await peerConnection.addIceCandidate(candidate);
-      } catch (err) {
-        console.error("Error adding ICE candidate:", err);
-      }
+      peerConnection.addIceCandidate(data.candidate).catch(console.error);
     }
-  } else if (data.type === "match") {
-    console.log("Found match!");
-    // If initiator, you can send an offer probe once a match is found.
-    socket.send(JSON.stringify({ type: "offer", sdp: peerConnection.localDescription }));
+  }
+
+  // Match found
+  else if (data.type === "match") {
+    console.log("Match found, initiator?", data.initiator);
+    // If initiator, do something as needed
   } else if (data.type === "newroom") {
-    console.log("Created new room!");
+    console.log("New room created");
   }
 };
 
-// Flush buffered ICE candidates
+// Send local ICE candidates to the server
+peerConnection.onicecandidate = (evt) => {
+  if (evt.candidate) {
+    socket.send(JSON.stringify({ type: "candidate", candidate: evt.candidate }));
+  }
+};
+
+// If the other side creates a data channel
+peerConnection.ondatachannel = (evt) => {
+  dataChannel = evt.channel;
+  dataChannel.onopen = () => console.log("Data channel open (Receiver)");
+  dataChannel.onmessage = (msg) => console.log("Receiver got:", msg.data);
+};
+
+// Flush buffered candidates
 function flushCandidateBuffer() {
-  candidateBuffer.forEach(async (cand) => {
-    try {
-      const candidate = new RTCIceCandidate(cand);
-      await peerConnection.addIceCandidate(candidate);
-    } catch (err) {
-      console.error("Error adding buffered ICE candidate:", err);
-    }
+  candidateBuffer.forEach((cand) => {
+    peerConnection.addIceCandidate(cand).catch(console.error);
   });
   candidateBuffer = [];
 }
 
-// -- ICE Candidate Handling --
-peerConnection.onicecandidate = (event) => {
-  if (event.candidate) {
-    socket.send(JSON.stringify({
-      type: "candidate",
-      candidate: event.candidate
-    }));
-  }
-};
-
-// -- Data Channel Setup for the Receiver --
-peerConnection.ondatachannel = (event) => {
-  dataChannel = event.channel;
-  dataChannel.onopen = () => {
-    console.log("Data channel open (Receiver)");
-    dataChannel.send("Hello from B!");
-  };
-  dataChannel.onmessage = (e) => console.log("Receiver got message:", e.data);
-  dataChannel.onclose = () => console.log("Data channel closed");
-};
-
-// -- Function to Start Handshake (Initiator) --
+// Initiator handshake
 function startHandshake(inputCode, inputPass) {
-  // Save code and password globally
   code = inputCode;
   pass = inputPass;
+  dataChannel = peerConnection.createDataChannel("channel");
+  dataChannel.onopen = () => console.log("Data channel open (Initiator)");
+  dataChannel.onmessage = (msg) => console.log("Initiator got:", msg.data);
 
-  // Create a data channel before making the offer.
-  dataChannel = peerConnection.createDataChannel("game");
-  dataChannel.onopen = () => {
-    console.log("Data channel open (Initiator)");
-    dataChannel.send("Hello from A!");
-  };
-  dataChannel.onmessage = (e) => console.log("Initiator got message:", e.data);
-  dataChannel.onclose = () => console.log("Data channel closed");
-
-  // Create an offer and then send a probe message with your code/pass
   peerConnection.createOffer()
     .then((offer) => peerConnection.setLocalDescription(offer))
     .then(() => {
-      // Instead of sending the offer immediately here, you send a "probe"
-      socket.send(JSON.stringify({
-        type: "probe",
-        data: { code: code, pass: pass }
-      }));
+      socket.send(JSON.stringify({ type: "probe", data: { code, pass } }));
     })
-    .catch((err) => {
-      console.error("Error creating offer:", err);
-    });
+    .catch(console.error);
 }
-

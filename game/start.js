@@ -1,3 +1,6 @@
+// ...existing code replaced...
 function handshakeWithCode() {
-  startHandshake(document.getElementById("code").value, document.getElementById("pass").value);
+  const codeValue = document.getElementById("code").value;
+  const passValue = document.getElementById("pass").value;
+  startHandshake(codeValue, passValue);
 }
