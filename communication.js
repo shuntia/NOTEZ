@@ -1,7 +1,7 @@
 // Replace with your Render server URL (use wss:// for secure connections)
 const serverUrl = "https://notez-server.onrender.com";
 const socket = new WebSocket(serverUrl);
-const peerConnection = new RTCPeerConnection();
+const peerConnection = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 let dataChannel; // Will be set for both initiator and receiver
 var code, pass;
 let candidateBuffer = [];  // Buffer ICE candidates if remoteDescription isn’t set
